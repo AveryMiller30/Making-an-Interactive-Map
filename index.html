@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Map</title>
+    <link rel="stylesheet" href="app.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css"
+        integrity="sha512-hoalWLoI8r4UszCkZ5kL8vayOGVae1oxXe/2A4AO6J9+580uKHDO3JdHb7NzwwzK5xr/Fs0W40kiNHxM9vyTtQ=="
+        crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.8.0/dist/leaflet.js"
+        integrity="sha512-BB3hKbKWOc9Ez/TAwyWxNXeoV9c1v6FIeYiBieIWkpLjauysF18NzgR1MBNBXf8/KABdlkX68nAhlwcDFLGPCQ=="
+        crossorigin=""></script>
+    <script src="app.js"></script>
+</head>
+<body>
+    <form>
+        <select id="business">
+            <option value="restaurant">Restaurants</option>
+            <option value="coffee">Coffee Shops</option>
+            <option value="hotel">Hotels</option>
+            <option value="market">Markets</option>
+        </select>
+        <button id="submit">Submit</button>
+    </form>
+    <div id="map"></div>
+</body>
+</html>
+
+<script>
+const myMap = { 
+    coordinates: [],
+    businesses: [],
+    map: {},
+    markers: {},
+        
+    mapBuild() {
+        this.map = L.map('map', {
+            center: this.coordinates,
+            zoom: 12,
+        });
+
+	    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        minZoom: '15',
+        }).addTo(this.map);
+		
+        const marker = L.marker(this.coordinates);
+        marker.addTo(this.map).bindPopup('<p1><b>Your Current Location</b></p1>').openPopup();
+    },
+
+    addMarkers() {
+		for (var i = 0; i < this.businesses.length; i++) {
+		this.markers = L.marker([
+			this.businesses[i].lat,
+			this.businesses[i].long,
+		])
+			.bindPopup(`<p1>${this.businesses[i].name}</p1>`)
+			.addTo(this.map)
+		}
+	},
+}
+async function getCoords(){
+	const pos = await new Promise((resolve, reject) => {
+	navigator.geolocation.getCurrentPosition(resolve, reject)
+	});
+	return [pos.coords.latitude, pos.coords.longitude]
+}
+
+async function fourSquare(business) {
+    const options = {
+        method: 'GET',
+        headers: {
+        Accept: 'application/json',
+        Authorization: 'fsq3bJlWfp1SBFCd4pwZDKKRvKKQLHh6dEoTQEPuNjWHXec='
+        }
+    };
+    let limit = 5;
+    let lat = myMap.coordinates[0];
+    let lon = myMap.coordinates[1];
+    let response = await fetch(`https://api.foursquare.com/v3/places/search?&query=${business}&limit=${limit}&ll=${lat}%2C${lon}`, options);
+    let data = await response.text();
+    let parsedData = JSON.parse(data);
+    let businesses = parsedData.results;
+    return businesses
+}
+    function processBusinesses(data) {
+        let businesses = data.map((element) => {
+            let location = {
+                name: element.name,
+                lat: element.geocodes.main.latitude,
+                long: element.geocodes.main.longitude
+            };
+            return location
+        })
+        return businesses
+    }
+
+    window.onload = async () => {
+	const coords = await getCoords()
+	myMap.coordinates = coords
+	myMap.mapBuild()
+    }
+
+    document.getElementById('submit').addEventListener('click', async(event) => {
+	event.preventDefault()
+	let business = document.getElementById('business').value
+    let data = await fourSquare(business)
+    myMap.businesses = processBusinesses(data)
+    myMap.addMarkers()
+    console.log(business)
+    })
+    
+</script>
